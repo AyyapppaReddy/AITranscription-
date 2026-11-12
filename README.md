@@ -42,6 +42,12 @@ A Python/FastAPI backend that transcribes audio/video interviews with timestamps
 
 ---
 
+## GitHub Pages Preview
+
+GitHub Pages serves the frontend from `static/index.html`. Pages is a static host, so the FastAPI backend, uploads, transcription, database, and analysis API do not run there. Those features require a separately hosted backend and frontend API/CORS configuration.
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Install Python 3.11+

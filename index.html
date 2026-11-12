@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JournalistAI Studio</title>
+</head>
+<body>
+  <p>Opening JournalistAI Studio...</p>
+  <p><a href="./static/index.html">Open the app</a></p>
+  <script>
+    const basePath = location.pathname.endsWith("/")
+      ? location.pathname
+      : `${location.pathname}/`;
+    location.replace(`${basePath}static/index.html${location.search}${location.hash}`);
+  </script>
+</body>
+</html>
