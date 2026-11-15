@@ -78,8 +78,11 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://127.0.0.1:8000", "http://localhost:8000", "http://127.0.0.1:3000", "http://localhost:3000"],
-        allow_credentials=True,
+        # Allow any origin so the frontend can be hosted on GitHub Pages (or
+        # anywhere else) and still reach this FastAPI backend. Credentials are
+        # disabled because the API uses no cookies/session auth.
+        allow_origins=["*"],
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )

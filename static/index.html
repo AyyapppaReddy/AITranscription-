@@ -2807,6 +2807,12 @@
           <span style="font-size:0.74rem; color:var(--text-muted); margin-top:2px;">Get a free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent-crimson);">Google AI Studio</a>.</span>
         </div>
 
+        <div class="form-group">
+          <label for="settings-backend-url">Backend API URL <span style="color:var(--text-muted); font-weight:400;">(required when hosting frontend separately, e.g. GitHub Pages)</span></label>
+          <input type="text" id="settings-backend-url" class="form-input" placeholder="e.g. http://localhost:8000  or  https://your-app.up.railway.app">
+          <span style="font-size:0.74rem; color:var(--text-muted); margin-top:2px;">Leave empty if the frontend is served by the FastAPI backend itself (same origin). All <code>/api/...</code> calls will be sent to this URL.</span>
+        </div>
+
         <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:12px; font-size:0.78rem; color:var(--text-secondary);">
           <strong>Local Whisper Config:</strong> Device: CPU | Compute: int8 | Multi-threading: Enabled. To switch to CUDA/GPU, update <code>WHISPER_DEVICE=cuda</code> in your <code>.env</code> file.
         </div>
@@ -2894,6 +2900,37 @@
 
   
   <script>
+    // -----------------------------------------------------------------------
+    // Backend API base URL configuration
+    // -----------------------------------------------------------------------
+    // When the frontend is served by the FastAPI backend itself (same origin),
+    // leave this empty and all /api/... calls stay relative.
+    // When the frontend is hosted separately (e.g. GitHub Pages), set it to
+    // the FastAPI backend URL, e.g. http://localhost:8000 or a Railway URL.
+    function getApiBase() {
+      const saved = (localStorage.getItem('backend_url') || '').trim();
+      return saved ? saved.replace(/\/+$/, '') : '';
+    }
+
+    // Intercept fetch so every relative /api/... call is rewritten to the
+    // configured backend URL. This avoids editing every fetch() call.
+    const _originalFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      let url = typeof input === 'string' ? input : input.url;
+      if (url.startsWith('/api/')) {
+        const base = getApiBase();
+        if (base) {
+          url = base + url;
+          if (typeof input === 'string') {
+            input = url;
+          } else {
+            input = new Request(url, input);
+          }
+        }
+      }
+      return _originalFetch(input, init);
+    };
+
     const UI_ICONS = {
       pencil: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`,
       play: `<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;"><polygon points="6 3 20 12 6 21 6 3"/></svg>`,
@@ -3026,7 +3063,11 @@
       }
 
       if (contentType.includes('text/html') || /^\s*</.test(responseText)) {
-        throw new Error('The server returned an HTML page instead of API JSON. Start the FastAPI backend and open the app at its server URL; GitHub Pages cannot handle API requests or audio uploads.');
+        const base = getApiBase();
+        const hint = base
+          ? `Backend URL is set to "${base}". Make sure the FastAPI server is running there and reachable (check CORS / firewall).`
+          : 'No Backend URL configured. Open Settings (⚙) and set the Backend API URL to your running FastAPI server, e.g. http://localhost:8000.';
+        throw new Error('The server returned an HTML page instead of API JSON. ' + hint);
       }
       if (!response.ok) {
         throw new Error((data && data.detail) || `${fallbackMessage} (HTTP ${response.status})`);
@@ -4734,6 +4775,8 @@
 
     async function openSettingsModal() {
       if (settingsModal) settingsModal.classList.add('active');
+      const backendInput = document.getElementById('settings-backend-url');
+      if (backendInput) backendInput.value = getApiBase();
       try {
         const res = await fetch('/api/interviews/config/settings');
         if (!res.ok) return;
@@ -4754,8 +4797,17 @@
     async function saveAppSettings() {
       const keyInput = document.getElementById('settings-api-key');
       const modelSelect = document.getElementById('settings-gemini-model');
+      const backendInput = document.getElementById('settings-backend-url');
       const apiKey = keyInput ? keyInput.value.trim() : '';
       const model = modelSelect ? modelSelect.value : 'gemini-2.5-pro';
+      const backendUrl = backendInput ? backendInput.value.trim() : '';
+
+      // Persist backend URL locally — it controls where this browser sends API calls.
+      if (backendUrl) {
+        localStorage.setItem('backend_url', backendUrl);
+      } else {
+        localStorage.removeItem('backend_url');
+      }
 
       try {
         const res = await fetch('/api/interviews/config/settings', {
@@ -4768,7 +4820,7 @@
         });
         if (!res.ok) throw new Error('Failed to save settings');
         closeSettingsModal();
-        showToast('Settings saved successfully!', 'success');
+        showToast('Settings saved successfully! Backend: ' + (getApiBase() || 'same-origin'), 'success');
       } catch (err) {
         showToast('Save failed: ' + err.message, 'error');
       }
