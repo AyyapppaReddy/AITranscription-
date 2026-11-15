@@ -3016,11 +3016,31 @@
     }
 
     
+    async function readApiJson(response, fallbackMessage) {
+      const contentType = response.headers.get('content-type') || '';
+      const responseText = await response.text();
+      let data = null;
+
+      if (responseText) {
+        try { data = JSON.parse(responseText); } catch (_) {}
+      }
+
+      if (contentType.includes('text/html') || /^\s*</.test(responseText)) {
+        throw new Error('The server returned an HTML page instead of API JSON. Start the FastAPI backend and open the app at its server URL; GitHub Pages cannot handle API requests or audio uploads.');
+      }
+      if (!response.ok) {
+        throw new Error((data && data.detail) || `${fallbackMessage} (HTTP ${response.status})`);
+      }
+      if (data === null) {
+        throw new Error(`${fallbackMessage}: the server returned invalid JSON.`);
+      }
+      return data;
+    }
+
     async function loadInterviewsList() {
       try {
         const res = await fetch('/api/interviews');
-        if (!res.ok) throw new Error('Failed to load interviews');
-        interviewsList = await res.json();
+        interviewsList = await readApiJson(res, 'Failed to load interviews');
 
         const total = interviewsList.length;
         const completed = interviewsList.filter(i => i.status === 'completed').length;
@@ -4663,11 +4683,7 @@
             vocabulary_hint: document.getElementById('form-vocab').value.trim() || null,
           })
         });
-        if (!metaRes.ok) {
-          const err = await metaRes.json();
-          throw new Error(err.detail || 'Failed to create record');
-        }
-        const interview = await metaRes.json();
+        const interview = await readApiJson(metaRes, 'Failed to create record');
 
         submitBtn.innerHTML = `Uploading audio…`;
         const formData = new FormData();
@@ -4676,16 +4692,11 @@
           method: 'POST',
           body: formData
         });
-        if (!uploadRes.ok) {
-          
-          let errMsg = 'File upload failed';
-          try {
-            const errBody = await uploadRes.json();
-            errMsg = errBody.detail || errMsg;
-          } catch (_) {}
-          
+        try {
+          await readApiJson(uploadRes, 'File upload failed');
+        } catch (err) {
           try { await fetch(`/api/interviews/${interview.id}`, { method: 'DELETE' }); } catch(_) {}
-          throw new Error(errMsg);
+          throw err;
         }
 
         submitBtn.innerHTML = `Starting pipeline…`;
@@ -4695,11 +4706,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ run_diarization: false, fast_mode: isFast })
         });
-        if (!procRes.ok) {
-          let errMsg = 'Failed to start processing pipeline';
-          try { const e = await procRes.json(); errMsg = e.detail || errMsg; } catch(_) {}
-          throw new Error(errMsg);
-        }
+        await readApiJson(procRes, 'Failed to start processing pipeline');
 
         closeNewInterviewModal();
         showToast('Interview uploaded & processing initiated!', 'success');
