@@ -51,7 +51,16 @@ async def _lifespan(app: FastAPI):
         from app.providers.registry import get_transcription_provider
         provider = get_transcription_provider()
         if hasattr(provider, "_ensure_model"):
-            provider._ensure_model()
+            # Run the (potentially slow) model download in a background thread
+            # so the app starts accepting requests immediately. The model will
+            # be ready by the time the first transcription is requested; if not,
+            # transcribe() calls _ensure_model() itself.
+            import threading
+            threading.Thread(
+                target=provider._ensure_model,
+                name="whisper-prewarm",
+                daemon=True,
+            ).start()
     except Exception as exc:
         logger.warning("Whisper pre-warm deferred: %s", exc)
 

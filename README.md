@@ -44,7 +44,44 @@ A Python/FastAPI backend that transcribes audio/video interviews with timestamps
 
 ## GitHub Pages Preview
 
-GitHub Pages serves the frontend from `static/index.html`. Pages is a static host, so the FastAPI backend, uploads, transcription, database, and analysis API do not run there. Those features require a separately hosted backend and frontend API/CORS configuration.
+GitHub Pages serves the frontend from `static/index.html`. Pages is a static host, so the FastAPI backend, uploads, transcription, database, and analysis API do not run there. For a fully working live app, deploy the backend (see below) and set the **Backend API URL** in the app's Settings modal, or just use the deployed URL directly (the backend serves the frontend too).
+
+---
+
+## ☁️ Live Deployment (Hugging Face Spaces — Free)
+
+The fastest way to make the whole app live (frontend **and** backend) for free is **Hugging Face Spaces** with Docker. No credit card required.
+
+1. Create a free account at https://huggingface.co/join
+2. Go to https://huggingface.co/spaces and click **Create new Space**
+3. Fill in:
+   - **Space name:** `journalistai` (or anything)
+   - **License:** MIT
+   - **Space SDK:** **Docker**
+   - **Hardware:** CPU basic (free) — 2 vCPU / 16 GB RAM, enough for the `small` Whisper model
+4. Click **Create Space**
+5. Choose **"Upload files by adding them to this repository"** and upload the entire project (or push from your existing GitHub repo).
+
+   ```powershell
+   git remote add hf https://huggingface.co/spaces/YOUR_USERNAME/journalistai
+   git push hf main
+   ```
+
+6. (Optional) In Space **Settings → Variables and secrets**, add:
+   - `GEMINI_API_KEY` — your Google Gemini key for insight extraction (without it, the local fallback analyser is used)
+   - `WHISPER_MODEL_SIZE` — `small` (default), `medium`, or `large-v3` (needs more RAM)
+7. (Optional) Enable **Persistent storage** in Settings so your database and uploads survive restarts.
+
+The Space builds the Docker image (installs Python, ffmpeg, dependencies) and starts the FastAPI server. Your app will be live at:
+```
+https://YOUR_USERNAME-journalistai.hf.space
+```
+
+That single URL serves both the frontend and the API — no CORS, no mixed-content, no Backend URL setting needed.
+
+### Railway / Other Docker Hosts
+
+The `Dockerfile` works on Railway, Render, Fly.io, or any Docker host. Set `PORT` (Railway sets it automatically) and mount persistent storage at `/data`.
 
 ---
 
